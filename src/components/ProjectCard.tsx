@@ -8,8 +8,7 @@ interface ProjectCardProps {
 		thumbnail: StaticImageData;
 		previewLink: string;
 		githubLink?: string;
-		tagName: string;
-		tagVariant?: string;
+		tag: string;
 	};
 }
 
@@ -55,8 +54,8 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 					</div>
 				</div>
 				<div className="flex">
-					<span is-="badge" variant-={project.tagVariant || "background1"} cap-="round" className="mx-auto">
-						{project.tagName}
+					<span is-="badge" variant-="background1" cap-="round" className="mx-auto">
+						{project.tag}
 					</span>
 				</div>
 			</div>
