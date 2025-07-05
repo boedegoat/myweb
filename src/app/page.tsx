@@ -6,17 +6,17 @@ import projects from "@/data/projects";
 export default function Home() {
 	return (
 		<div className="wrapper my-10">
-			<section id="intro" className="text-center">
-				<h1 className="text-4xl font-bold text-white">🧑‍💻 Bhremada Fevreano</h1>
+			<section id="intro" className="section text-center">
+				<h1 className="text-4xl font-bold text-white">Bhremada Fevreano</h1>
 				<p className="mt-4 font-medium text-lg">Never Ending Learner</p>
 
 				<div box-="square" shear-="top" className="mt-6 mx-auto max-w-max">
 					<div className="header">
 						<span is-="badge" variant-="background0">
-							<h2 className="text-[var(--text)]/80 font-medium">❤️ things I love</h2>
+							<h2 className="text-[var(--text)]/80 font-medium">🔥 my interests</h2>
 						</span>
 					</div>
-					<div className="flex flex-wrap gap-3 p-2">
+					<div className="flex flex-wrap gap-3 p-2 justify-center">
 						<span is-="badge" variant-="teal">
 							Web
 						</span>
@@ -33,11 +33,11 @@ export default function Home() {
 				</div>
 			</section>
 
-			<section id="projects">
-				<h2 is-="badge" variant-="mauve" className="mt-10 text-[var(--background0)] font-semibold text-xl">
+			<section id="projects" className="section">
+				<h2 is-="badge" variant-="mauve" className="section-title">
 					My projects
 				</h2>
-				<div className="grid mt-6 gap-x-3 gap-y-8 grid-cols-3">
+				<div className="grid mt-6 gap-x-3 gap-y-8 justify-items-center grid-cols-1 lg:grid-cols-3">
 					{projects.map((project) => (
 						<ProjectCard key={project.name} project={project} />
 					))}
@@ -49,8 +49,8 @@ export default function Home() {
 				</div>
 			</section>
 
-			<section id="posts">
-				<h2 is-="badge" variant-="red" className="mt-10 text-[var(--background0)] font-semibold text-xl">
+			<section id="posts" className="section">
+				<h2 is-="badge" variant-="red" className="section-title">
 					My posts/writeups
 				</h2>
 				<div className="mt-6 space-y-5">

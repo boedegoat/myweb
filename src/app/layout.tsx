@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Footer from "@/components/Footer";
+import EmojiFavicon from "@/components/EmojiFavicon";
 
 export const metadata: Metadata = {
 	title: {
@@ -17,6 +18,9 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en" data-webtui-theme="catppuccin-mocha">
+			<head>
+				<EmojiFavicon>🧑‍💻</EmojiFavicon>
+			</head>
 			<body>
 				<main>{children}</main>
 				<Footer />

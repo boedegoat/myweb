@@ -34,3 +34,11 @@
 		--box-border-color: var(--background1);
 	}
 }
+
+.section {
+	@apply flex flex-col mt-10;
+}
+
+.section-title {
+	@apply mx-auto text-[var(--background0)] font-semibold text-xl;
+}

@@ -4,12 +4,12 @@ export default function Footer() {
 	return (
 		<footer>
 			<div box-="square" shear-="top" className="">
-				<div className="header">
-					<span is-="badge" variant-="background0">
-						<h2 className="text-[var(--text)] font-medium">thank you for visiting</h2>
+				<div className="header flex">
+					<span is-="badge" variant-="background0" className="mx-auto sm:mx-0">
+						<h2 className="text-[var(--text)] font-medium">thank you for visiting 🫰</h2>
 					</span>
 				</div>
-				<div className="flex justify-between items-center px-[1.5ch]">
+				<div className="flex flex-col sm:flex-row justify-between items-center p-[1.5ch] gap-y-5 py-[4ch] sm:py-0">
 					<p>Made with ❤️ + ☕</p>
 					<div className="flex">
 						<a href="https://linkedin.com/in/bhremada-fevreano" target="_blank" is-="button" box-="round">
