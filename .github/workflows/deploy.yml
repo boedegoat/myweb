@@ -16,4 +16,5 @@ jobs:
             - name: Rebuild and Run container
               run: |
                   cd ~/Code/myweb
+                  git pull
                   ./start.sh
