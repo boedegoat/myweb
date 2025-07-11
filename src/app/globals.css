@@ -59,3 +59,12 @@ details summary h3 {
 span[data-highlighted-line] {
 	@apply [background:var(--background0)]!;
 }
+
+dialog::backdrop {
+	background-color: rgba(0, 0, 0, 0.5);
+}
+
+dialog {
+	--dialog-offset-x: 2ch;
+	--dialog-offset-y: 2lh;
+}
