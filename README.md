@@ -1,3 +1,3 @@
 # myweb
 
-My personal website hosted on my own cloud
+My personal website hosted on my home cloud
