@@ -11,7 +11,7 @@ export default function Footer() {
 				</div>
 				<div className="wrapper flex flex-col sm:flex-row justify-between items-center p-[1.5ch] gap-y-5 py-[4ch] sm:py-0">
 					<p>Made with ❤️ + ☕ by boedegoat</p>
-					<div className="flex sm:-ml-[180px]">
+					<div className="flex sm:-ml-[155px]">
 						<a href="https://linkedin.com/in/bhremada-fevreano" target="_blank" is-="button" box-="round">
 							<span className="p-2">
 								<Linkedin />
