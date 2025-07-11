@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Footer from "@/components/Footer";
 import EmojiFavicon from "@/components/EmojiFavicon";
+import { Layout } from "@/components/layout";
 
 export const metadata: Metadata = {
 	title: {
@@ -22,8 +22,7 @@ export default function RootLayout({
 				<EmojiFavicon>🧑‍💻</EmojiFavicon>
 			</head>
 			<body>
-				<main>{children}</main>
-				<Footer />
+				<Layout>{children}</Layout>
 			</body>
 		</html>
 	);

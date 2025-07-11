@@ -11,6 +11,11 @@
 /* WebTUI Theme */
 @import "@webtui/theme-catppuccin";
 
+/* Nextra */
+@import "nextra-theme-blog/style.css";
+
+@variant dark (&:where(.dark *));
+
 @layer base {
 	:root {
 		--font-family: "JetBrainsMono", monospace;
@@ -41,4 +46,16 @@
 
 .section-title {
 	@apply mx-auto text-[var(--background0)] font-semibold text-xl;
+}
+
+button[title="Copy code"] {
+	@apply h-auto! [color:var(--text)]! [background-image:none]!;
+}
+
+details summary h3 {
+	@apply m-0! text-base!;
+}
+
+span[data-highlighted-line] {
+	@apply [background:var(--background0)]!;
 }

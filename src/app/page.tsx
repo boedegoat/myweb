@@ -2,8 +2,11 @@ import ProjectCard from "@/components/ProjectCard";
 import Link from "next/link";
 import PostCard from "@/components/PostCard";
 import projects from "@/data/projects";
+import { getPosts } from "@/lib/blog-utils";
 
-export default function Home() {
+export default async function Home() {
+	const posts = await getPosts();
+
 	return (
 		<div className="wrapper my-10">
 			<section id="intro" className="section text-center">
@@ -54,28 +57,26 @@ export default function Home() {
 					My posts/writeups
 				</h2>
 				<div className="mt-6 space-y-5">
-					<PostCard
-						post={{
-							title: "Example Title",
-							publishedOn: new Date(),
-							excerpt: "Explains a lot about blockchain exploitation",
-							tags: ["Blockchain", "Solidity"],
-						}}
-					/>
-					<PostCard
-						post={{
-							title: "Example Title",
-							publishedOn: new Date(),
-							excerpt: "Explains a lot about blockchain exploitation",
-							tags: ["Blockchain", "Solidity"],
-						}}
-					/>
+					{posts.map((post) => (
+						<PostCard
+							key={post.title}
+							post={{
+								title: post.title,
+								url: post.route,
+								publishedOn: post.frontMatter.date,
+								excerpt: post.frontMatter.description,
+								tags: post.frontMatter.tags,
+							}}
+						/>
+					))}
 				</div>
-				<div className="flex justify-center mt-8">
-					<Link href="/projects" is-="button" box-="round">
-						<span className="px-6">See More</span>
-					</Link>
-				</div>
+				{posts.length > 5 && (
+					<div className="flex justify-center mt-8">
+						<Link href="/projects" is-="button" box-="round">
+							<span className="px-6">See More</span>
+						</Link>
+					</div>
+				)}
 			</section>
 		</div>
 	);

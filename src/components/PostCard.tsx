@@ -4,15 +4,16 @@ import React from "react";
 interface PostCardProps {
 	post: {
 		title: string;
-		publishedOn: Date;
+		publishedOn: string;
 		excerpt: string;
 		tags: string[];
+		url: string;
 	};
 }
 
 export default function PostCard({ post }: PostCardProps) {
 	return (
-		<Link href="#" className="group block">
+		<Link href={post.url} className="group block">
 			<div box-="square" shear-="both" className="-ml-1">
 				<div className="flex justify-end items-center">
 					<div className="flex gap-2">
@@ -35,7 +36,7 @@ export default function PostCard({ post }: PostCardProps) {
 				</div>
 				<div className="flex">
 					<span className="opacity-70 ml-auto text-xs -translate-y-1" is-="badge" variant-="background0">
-						{post.publishedOn.toLocaleDateString()}
+						{post.publishedOn}
 					</span>
 				</div>
 			</div>
