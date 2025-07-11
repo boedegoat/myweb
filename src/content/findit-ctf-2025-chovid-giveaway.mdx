@@ -301,11 +301,11 @@ At first, I thought we needed to find a way to brute-force matching leaves that 
 
 That means the only viable option is to create our own Merkle tree using the `createGiveaway` function. But even then, we’re required to provide an amount. So the question is: how can we possibly drain all the balances if all we can do is add amounts to the contract and redeem exactly what we added?
 
-After hours of searching for solutions (and of course, asking my AI Assistant, which wasn’t very helpful that time), I finally stumbled upon this article about a **Second Preimage Attack on Merkle Trees**:
+After hours of searching for solutions, I finally stumbled upon this article about a **Second Preimage Attack on Merkle Trees**:
 
 👉 [Second Preimage Attack in Merkle Trees – RareSkills](https://www.rareskills.io/post/merkle-tree-second-preimage-attack)
 
-Basically, we’re only supposed to be able to redeem individual leaf nodes. But with this attack, we can actually redeem intermediary nodes too. And the crazy part? We can customize those intermediary nodes to drain all the balances!
+Basically, we’re only supposed to be able to redeem individual leaf nodes. But with this attack, we can actually redeem intermediary nodes too. And the crazy part? We can customize those intermediary nodes to drain all the balances 😎
 
 ## Solution
 
