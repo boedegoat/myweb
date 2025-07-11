@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import nextra from "nextra";
 
 const nextConfig: NextConfig = {
-	/* config options here */
+	output: "standalone",
 };
 
 const withNextra = nextra({
