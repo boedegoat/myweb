@@ -33,6 +33,9 @@ export default async function Home() {
 							<span is-="badge" variant-="flamingo">
 								AI
 							</span>
+							<span is-="badge" variant-="maroon">
+								Finance
+							</span>
 						</div>
 					</div>
 				</section>
