@@ -27,18 +27,7 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en" data-webtui-theme="catppuccin">
-			<head>
-				<EmojiFavicon>🧑‍💻</EmojiFavicon>
-			</head>
 			<body className={cn(jetBrainsMono.variable, "font-mono antialiased")}>
-				{/* <div className="fixed inset-0">
-					<Image
-						src="/images/webbanner.png"
-						fill
-						alt="background image"
-						className="object-cover opacity-10"
-					/>
-				</div> */}
 				<Layout>{children}</Layout>
 			</body>
 		</html>
