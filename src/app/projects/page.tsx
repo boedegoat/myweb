@@ -1,5 +1,5 @@
 import { GoBack } from "@/components/go-back";
-import ProjectCard from "@/components/ProjectCard";
+import ProjectCard from "@/components/project-card";
 import projects from "@/data/projects";
 
 export default function ProjectsPage() {

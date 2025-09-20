@@ -3,10 +3,10 @@ import { useMDXComponents as getNextraMDXComponents } from "nextra/mdx-component
 // @ts-expect-error -- fix me
 import { MDXComponents, UseMDXComponents } from "nextra/mdx-components";
 import type { ComponentProps, FC } from "react";
-import { Meta } from "@/components/meta";
+import { Meta } from "@/components/posts/meta";
 import type { BlogMetadata } from "@/types/blog";
 import { isValidDate } from "./utils";
-import Article from "@/components/article";
+import Article from "@/components/posts/article";
 import { GoBack } from "@/components/go-back";
 
 const createHeading = (Tag: `h${2 | 3 | 4 | 5 | 6}`): FC<ComponentProps<typeof Tag>> =>

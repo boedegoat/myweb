@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import EmojiFavicon from "@/components/EmojiFavicon";
-import { Layout } from "@/components/layout";
-import Image from "next/image";
+import EmojiFavicon from "@/components/emoji-favicon";
+import { Layout } from "@/components/layouts/layout";
 
 export const metadata: Metadata = {
 	title: {
@@ -18,19 +17,19 @@ export default function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en" data-webtui-theme="catppuccin-mocha">
+		<html lang="en" data-webtui-theme="catppuccin">
 			<head>
 				<EmojiFavicon>🧑‍💻</EmojiFavicon>
 			</head>
 			<body>
-				<div className="fixed inset-0">
+				{/* <div className="fixed inset-0">
 					<Image
 						src="/images/webbanner.png"
 						fill
 						alt="background image"
-						className="object-cover opacity-20"
+						className="object-cover opacity-10"
 					/>
-				</div>
+				</div> */}
 				<Layout>{children}</Layout>
 			</body>
 		</html>

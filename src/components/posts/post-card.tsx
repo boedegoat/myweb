@@ -18,13 +18,7 @@ export default function PostCard({ post }: PostCardProps) {
 				<div className="flex justify-end items-center">
 					<div className="flex gap-2">
 						{post.tags.map((tag, idx) => (
-							<span
-								key={`${tag}-${idx}`}
-								is-="badge"
-								variant-="background1"
-								cap-="round"
-								className="text-xs"
-							>
+							<span key={`${tag}-${idx}`} is-="badge" variant-="background1" cap-="round" className="text-xs">
 								{tag}
 							</span>
 						))}
