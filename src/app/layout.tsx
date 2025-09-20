@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import EmojiFavicon from "@/components/emoji-favicon";
 import { Layout } from "@/components/layouts/layout";
 import { JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
