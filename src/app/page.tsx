@@ -3,6 +3,7 @@ import Link from "next/link";
 import PostCard from "@/components/posts/post-card";
 import projects from "@/data/projects";
 import { getPosts } from "@/lib/blog-utils";
+import { aboutMe } from "@/data/texts";
 
 export default async function Home() {
 	const posts = await getPosts();
@@ -26,11 +27,7 @@ export default async function Home() {
 				<h2 is-="badge" variant-="foreground1" className="section-title">
 					About me
 				</h2>
-				<p className="font-medium mt-5 mx-auto text-center text-base">
-					Security-minded full-stack dev. I compete in CTFs and hackathons, love web exploitation blockchain challenges, and study
-					smart-contract audits. I still take classic full-stack freelance, shipping fast and modern web apps that solve real problems while
-					applying the same discipline to securing the web. I’m naturally a curious person and love learning something new
-				</p>
+				<p className="font-medium mt-5 mx-auto text-center text-base">{aboutMe}</p>
 				<div className="flex flex-wrap p-2 justify-center mt-8">
 					<span is-="badge" variant-="maroon">
 						I ❤️

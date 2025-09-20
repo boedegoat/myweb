@@ -3,6 +3,7 @@ import "./globals.css";
 import { Layout } from "@/components/layouts/layout";
 import { JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { aboutMe } from "@/data/texts";
 
 const jetBrainsMono = JetBrains_Mono({
 	subsets: ["latin"],
@@ -15,8 +16,7 @@ export const metadata: Metadata = {
 		template: "%s | Bhremada Fevreano",
 		default: "Bhremada Fevreano",
 	},
-	description:
-		"Security-minded full-stack dev. I compete in CTFs and hackathons, love web exploitation and blockchain challenges, and study smart-contract audits. I still take classic full-stack freelance, shipping fast and modern web apps that solve real problems while applying the same discipline to securing the web. I’m naturally a curious person and love learning something new",
+	description: aboutMe,
 };
 
 export default function RootLayout({
