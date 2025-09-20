@@ -16,6 +16,10 @@
 
 @variant dark (&:where(.dark *));
 
+@theme inline {
+	--font-mono: var(--font-jetbrains-mono);
+}
+
 @layer base {
 	:root {
 		--font-family: "JetBrainsMono", monospace;
