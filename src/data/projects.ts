@@ -13,7 +13,7 @@ const projects = [
 	{
 		name: "National Cyber Week",
 		thumbnail: NcwThumbnail,
-		previewLink: "https://ncw.cscbinus.com",
+		previewLink: "https://website-ncw.vercel.app/",
 		tag: "Web",
 		description: "A landing page and registration management platform for the National Cyber Week event",
 	},
@@ -30,8 +30,7 @@ const projects = [
 		thumbnail: CtfInstanceRunnerThumbnail,
 		githubLink: "https://github.com/boedegoat/ctf-instance-runner",
 		tag: "CTF",
-		description:
-			"A simple web application for managing temporary isolated CTF challenge instances using Docker containers.",
+		description: "A simple web application for managing temporary isolated CTF challenge instances using Docker containers.",
 	},
 	{
 		name: "TixChain",
@@ -61,16 +60,14 @@ const projects = [
 		thumbnail: FullWebChatThumbnail,
 		githubLink: "https://github.com/boedegoat/fullweb-chat",
 		tag: "AI",
-		description:
-			"AI-powered web app that crawls enitire website and enables interactive Q&A with site content using RAG and vector search.",
+		description: "AI-powered web app that crawls enitire website and enables interactive Q&A with site content using RAG and vector search.",
 	},
 	{
 		name: "MomenAjaib",
 		thumbnail: MomenAjaibThumbnail,
 		previewLink: "https://www.momenajaib.id",
 		tag: "Web",
-		description:
-			"A digital wedding invitation service that allows couples to create, customize, and share beautiful online wedding cards.",
+		description: "A digital wedding invitation service that allows couples to create, customize, and share beautiful online wedding cards.",
 	},
 	{
 		name: "Novidesigncakes",
