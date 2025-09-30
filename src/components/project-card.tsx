@@ -18,7 +18,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 	return (
 		<div className="max-w-md">
 			<div box-="square" shear-="both" className="-ml-1">
-				<div>
+				<div className="flex justify-center">
 					<span is-="badge" variant-="background0">
 						<h3 className="text-[var(--text)] font-semibold">{project.name}</h3>
 					</span>

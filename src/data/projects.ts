@@ -1,6 +1,7 @@
 import NcwThumbnail from "@/assets/images/projects/ncw.png";
 import AirAssistantThumbnail from "@/assets/images/projects/air-assistant.png";
 import CtfInstanceRunnerThumbnail from "@/assets/images/projects/ctf-instance-runner.png";
+import QrbnAppThumbnail from "@/assets/images/projects/qrbnapp.png";
 import TixchainThumbnail from "@/assets/images/projects/tixchain.png";
 import WariuxThumbnail from "@/assets/images/projects/wariux.png";
 import CryptolensThumbnail from "@/assets/images/projects/cryptolens.png";
@@ -33,6 +34,14 @@ const projects = [
 		description: "A simple web application for managing temporary isolated CTF challenge instances using Docker containers.",
 	},
 	{
+		name: "qrbn.app",
+		thumbnail: QrbnAppThumbnail,
+		githubLink: "https://github.com/qrbn-app",
+		previewLink: "https://qrbn.app",
+		tag: "Web3",
+		description: "Strengthening the foundation to bring faith into the blockchain era. Selected as top 10 on Lisk Builder Challenge Round 2",
+	},
+	{
 		name: "TixChain",
 		thumbnail: TixchainThumbnail,
 		githubLink: "https://github.com/boedegoat/tixchain",
@@ -48,19 +57,13 @@ const projects = [
 		description: "Personal portfolio with catchy animations",
 	},
 	{
-		name: "CryptoLens",
-		thumbnail: CryptolensThumbnail,
-		githubLink: "https://github.com/boedegoat/cryptolens",
-		tag: "AI",
+		name: "Aim Training",
+		thumbnail: AimTrainingThumbnail,
+		previewLink: "https://aim-training.vercel.app/",
+		githubLink: "https://github.com/boedegoat/aim-training",
+		tag: "Web",
 		description:
-			"This web-based tool is designed to automate cryptocurrency research by analyzing technical data, news, and Reddit sentiment for a specific crypto asset.",
-	},
-	{
-		name: "Full Web Chat",
-		thumbnail: FullWebChatThumbnail,
-		githubLink: "https://github.com/boedegoat/fullweb-chat",
-		tag: "AI",
-		description: "AI-powered web app that crawls enitire website and enables interactive Q&A with site content using RAG and vector search.",
+			"Train your aim to destroy your enemy heads. Built with HTML, CSS, Vanilla JS for my passion project (at that time there was no AI tools)",
 	},
 	{
 		name: "MomenAjaib",
@@ -77,12 +80,19 @@ const projects = [
 		description: "An ecommerce website for a local cake business, enabling online orders and product management",
 	},
 	{
-		name: "Aim Training",
-		thumbnail: AimTrainingThumbnail,
-		previewLink: "https://aim-training.vercel.app/",
-		githubLink: "https://github.com/boedegoat/aim-training",
-		tag: "Web",
-		description: "Train your aim to destroy your enemy heads. Built with HTML, CSS, Vanilla JS",
+		name: "CryptoLens",
+		thumbnail: CryptolensThumbnail,
+		githubLink: "https://github.com/boedegoat/cryptolens",
+		tag: "AI",
+		description:
+			"This web-based tool is designed to automate cryptocurrency research by analyzing technical data, news, and Reddit sentiment for a specific crypto asset.",
+	},
+	{
+		name: "Full Web Chat",
+		thumbnail: FullWebChatThumbnail,
+		githubLink: "https://github.com/boedegoat/fullweb-chat",
+		tag: "AI",
+		description: "AI-powered web app that crawls enitire website and enables interactive Q&A with site content using RAG and vector search.",
 	},
 ];
 

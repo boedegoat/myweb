@@ -12,13 +12,16 @@ export default async function Home() {
 		<div className="wrapper">
 			<section id="intro" className="section text-center py-10">
 				<h2 className="text-5xl font-black text-white leading-tight tracking-tight">
-					love to{" "}
+					love to <br className="sm:hidden" />
 					<span is-="badge" variant-="teal">
 						build
 					</span>
-					, love to{" "}
-					<span is-="badge" variant-="red">
-						hack
+					<br className="lg:hidden" />{" "}
+					<span className="mt-4 lg:mt-0 inline-block">
+						love to <br className="sm:hidden" />
+						<span is-="badge" variant-="red">
+							hack
+						</span>
 					</span>
 				</h2>
 			</section>
@@ -28,7 +31,7 @@ export default async function Home() {
 					About me
 				</h2>
 				<p className="font-medium mt-5 mx-auto text-center text-base">{aboutMe}</p>
-				<div className="flex flex-wrap p-2 justify-center mt-8">
+				<div className="max-w-[350px] sm:max-w-none mx-auto flex flex-wrap p-2 justify-center mt-8">
 					<span is-="badge" variant-="maroon">
 						I ❤️
 					</span>
