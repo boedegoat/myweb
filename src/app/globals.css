@@ -24,6 +24,7 @@
 	:root {
 		--font-family: "JetBrainsMono", monospace;
 		--tooltip-delay: 0.4s;
+		--background0: #101010;
 		@apply scroll-smooth;
 	}
 
