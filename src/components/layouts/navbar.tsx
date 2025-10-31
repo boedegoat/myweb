@@ -9,7 +9,9 @@ export default function Navbar() {
 				<div className="flex justify-between items-center p-2 -mb-1">
 					<Link href="/" className="flex items-center gap-2">
 						<Image src={logo} alt="logo" width={35} height={35} className="-rotate-12" />
-						<h1 className="font-bold text-white">Bhremada <span className="hidden sm:inline">Fevreano</span></h1>
+						<h1 className="font-bold text-white">
+							Bhremada <span className="hidden sm:inline">Fevreano</span>
+						</h1>
 					</Link>
 					<div className="flex gap-4 text-sm">
 						<a href="https://poc.bhremada.com" target="_blank" className="hover:underline">
@@ -23,7 +25,7 @@ export default function Navbar() {
 						</a>
 						<a
 							target="_blank"
-							href="https://docs.google.com/document/d/1z5B69Snh1bc31whXM6EXhap7CJZHF2vQ1VjWh-D4LNk/edit?usp=sharing"
+							href="https://docs.google.com/document/d/1y9_drMsY3rSnZfJLKiDK3KhqCnxMLOmv/edit?usp=sharing&ouid=109600976148421922668&rtpof=true&sd=true"
 							className="hover:underline"
 						>
 							CV
