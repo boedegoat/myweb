@@ -10,7 +10,7 @@ export default function Footer() {
 					</span>
 				</div>
 				<div className="wrapper flex flex-col sm:flex-row justify-between items-center p-[1.5ch] gap-y-5 py-[4ch] sm:py-0">
-					<div>
+					<div className="flex gap-1">
 						<p className="text-gray-300 text-sm">
 							Contact me at <a href="mailto:work@bhremada.com">work@bhremada.com</a>
 						</p>

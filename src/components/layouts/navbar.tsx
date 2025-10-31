@@ -23,13 +23,6 @@ export default function Navbar() {
 						<a href="#posts" className="hover:underline">
 							Posts
 						</a>
-						<a
-							target="_blank"
-							href="https://docs.google.com/document/d/1y9_drMsY3rSnZfJLKiDK3KhqCnxMLOmv/edit?usp=sharing&ouid=109600976148421922668&rtpof=true&sd=true"
-							className="hover:underline"
-						>
-							CV
-						</a>
 					</div>
 				</div>
 			</div>
